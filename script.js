@@ -1,6 +1,6 @@
 let graphData = null;
 let currentStep = 0;
-let currentPath = [];
+let currentSteps = [];
 
 async function loadGraphData() {
     const res = await fetch('data/graph.json');
@@ -10,7 +10,6 @@ async function loadGraphData() {
 
 function setupAutocomplete() {
     const allRooms = [];
-
     for (let f in graphData.buildings.new.floors)
         allRooms.push(...graphData.buildings.new.floors[f]);
     for (let f in graphData.buildings.old.wings.A.floors)
@@ -33,7 +32,6 @@ function setupAutocomplete() {
 function getImageForNode(node) {
     const c = graphData.coordinates[node];
     if (!c) return null;
-
     if (c.building === 'new') return `/assets/maps/new_${c.floor}.jpg`;
     if (c.building === 'old') return `/assets/maps/old_${c.floor}A.jpg`;
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
@@ -43,11 +41,15 @@ function getImageForNode(node) {
 function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext) {
     const fromCoord = graphData.coordinates[fromNode];
     const toCoord = graphData.coordinates[toNode];
-    if (!fromCoord || !toCoord) return;
+    if (!fromCoord || !toCoord) {
+        console.error('Нет координат для', fromNode, toNode);
+        return;
+    }
 
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
+        container.innerHTML = ''; // полная очистка
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
@@ -71,7 +73,6 @@ function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext
             ctx.fillText('🏁', toCoord.x + 10, toCoord.y - 6);
         }
 
-        container.innerHTML = '';
         container.appendChild(canvas);
 
         if (onNext) {
@@ -82,54 +83,53 @@ function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext
             container.appendChild(btn);
         }
     };
+    img.onerror = () => {
+        container.innerHTML = `<div style="color:red;">Ошибка загрузки ${imageSrc}</div>`;
+    };
 }
 
-function startNavigation(startNode, endNode) {
-    const path = [startNode, endNode];
-    const steps = [];
-
-    // Новый корпус: 0208 → exit_new_to_transition
-    steps.push({
-        from: "0208",
-        to: "exit_new_to_transition",
-        image: getImageForNode("0208"),
-        isFirst: true,
-        isLast: false
-    });
-
-    // Переход: enter_transition_from_new → exit_transition_to_old
-    steps.push({
-        from: "enter_transition_from_new",
-        to: "exit_transition_to_old",
-        image: getImageForNode("enter_transition_from_new"),
-        isFirst: false,
-        isLast: false
-    });
-
-    // Старый корпус: enter_old_from_transition → ТП-8 ЛТТО ЦТМ
-    steps.push({
-        from: "enter_old_from_transition",
-        to: "ТП-8 ЛТТО ЦТМ",
-        image: getImageForNode("enter_old_from_transition"),
-        isFirst: false,
-        isLast: true
-    });
-
-    currentPath = steps;
-    currentStep = 0;
-    showStep();
-}
-
-function showStep() {
+function startManualRoute() {
     const container = document.getElementById('mapContainer');
     if (!container) return;
-    const step = currentPath[currentStep];
+
+    currentSteps = [
+        {
+            from: "0208",
+            to: "exit_new_to_transition",
+            image: "/assets/maps/new_2.jpg",
+            isFirst: true,
+            isLast: false
+        },
+        {
+            from: "enter_transition_from_new",
+            to: "exit_transition_to_old",
+            image: "/assets/maps/transition_old_new.png",
+            isFirst: false,
+            isLast: false
+        },
+        {
+            from: "enter_old_from_transition",
+            to: "ТП-8 ЛТТО ЦТМ",
+            image: "/assets/maps/old_1A.jpg",
+            isFirst: false,
+            isLast: true
+        }
+    ];
+
+    currentStep = 0;
+    showManualStep();
+}
+
+function showManualStep() {
+    const container = document.getElementById('mapContainer');
+    if (!container) return;
+    const step = currentSteps[currentStep];
     if (!step) return;
 
     drawStep(container, step.from, step.to, step.image, step.isFirst, step.isLast, () => {
-        if (currentStep + 1 < currentPath.length) {
+        if (currentStep + 1 < currentSteps.length) {
             currentStep++;
-            showStep();
+            showManualStep();
         }
     });
 }
@@ -141,7 +141,7 @@ document.getElementById('findBtn').addEventListener('click', async () => {
     if (!from || !to) return alert('Введите обе аудитории');
     if (!graphData) await loadGraphData();
 
-    startNavigation(from, to);
+    startManualRoute(); // запускаем жёсткий маршрут
     document.getElementById('result').style.display = 'block';
 });
 
@@ -150,7 +150,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     document.getElementById('to').value = '';
     document.getElementById('result').style.display = 'none';
     document.getElementById('mapContainer').innerHTML = '';
-    currentPath = [];
+    currentSteps = [];
     currentStep = 0;
 });
 
