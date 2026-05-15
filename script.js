@@ -10,18 +10,24 @@ async function loadGraphData() {
 
 function setupAutocomplete() {
     const allRooms = [];
-    for (let f in graphData.buildings.new.floors)
-        allRooms.push(...graphData.buildings.new.floors[f]);
-    for (let w in graphData.buildings.old.wings)
-        for (let f in graphData.buildings.old.wings[w].floors)
-            allRooms.push(...graphData.buildings.old.wings[w].floors[f]);
 
-    let datalist = document.getElementById('auditories-list');
-    if (!datalist) {
-        datalist = document.createElement('datalist');
-        datalist.id = 'auditories-list';
-        document.body.appendChild(datalist);
+    // Новый корпус
+    for (let f in graphData.buildings.new.floors) {
+        allRooms.push(...graphData.buildings.new.floors[f]);
     }
+
+    // Старый корпус А
+    for (let f in graphData.buildings.old.wings.A.floors) {
+        allRooms.push(...graphData.buildings.old.wings.A.floors[f]);
+    }
+
+    const datalist = document.getElementById('auditories-list') || (() => {
+        const dl = document.createElement('datalist');
+        dl.id = 'auditories-list';
+        document.body.appendChild(dl);
+        return dl;
+    })();
+
     datalist.innerHTML = '';
     allRooms.forEach(r => {
         const opt = document.createElement('option');
@@ -34,6 +40,7 @@ function findPath(start, end) {
     const paths = graphData.paths;
     const queue = [[start]];
     const visited = new Set();
+
     while (queue.length) {
         const path = queue.shift();
         const node = path[path.length - 1];
@@ -50,6 +57,7 @@ function findPath(start, end) {
 function getImageForNode(node) {
     const c = graphData.coordinates[node];
     if (!c) return null;
+
     if (c.building === 'new') return `/assets/maps/new_${c.floor}.jpg`;
     if (c.building === 'old') return `/assets/maps/old_${c.floor}A.jpg`;
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
@@ -138,6 +146,7 @@ function showStep() {
 document.getElementById('findBtn').addEventListener('click', async () => {
     const from = document.getElementById('from').value.trim();
     const to = document.getElementById('to').value.trim();
+
     if (!from || !to) return alert('Введите обе аудитории');
     if (!graphData) await loadGraphData();
 
