@@ -117,12 +117,18 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
+
     for (let i = 0; i < path.length - 1; i++) {
         const a = path[i];
         const b = path[i + 1];
         const imgA = getImageForNode(a);
         const imgB = getImageForNode(b);
-        if (imgA !== imgB || i === 0 || i === path.length - 2) {
+
+        // Принудительная смена при смене building
+        const buildingA = graphData.coordinates[a]?.building;
+        const buildingB = graphData.coordinates[b]?.building;
+
+        if (imgA !== imgB || buildingA !== buildingB || i === 0) {
             steps.push({ from: a, to: b });
         }
     }
@@ -131,7 +137,6 @@ function startNavigation(path) {
     currentStep = 0;
     showStep();
 }
-
 function showStep() {
     const container = document.getElementById('mapContainer');
     if (!container) return;
