@@ -126,19 +126,36 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
+    let currentStepPoints = [path[0]];
 
     for (let i = 0; i < path.length - 1; i++) {
         const from = path[i];
         const to = path[i + 1];
-        const buildingFrom = graphData.coordinates[from]?.building;
-        const buildingTo = graphData.coordinates[to]?.building;
+        const imgFrom = getImageForNode(from);
+        const imgTo = getImageForNode(to);
 
-        if (i === 0 || buildingFrom !== buildingTo) {
-            steps.push({ from, to });
+        if (imgFrom === imgTo) {
+            // Продолжаем на той же картинке
+            currentStepPoints.push(to);
         } else {
-            const last = steps[steps.length - 1];
-            last.to = to;
+            // Заканчиваем текущий шаг
+            if (currentStepPoints.length >= 2) {
+                steps.push({
+                    from: currentStepPoints[0],
+                    to: currentStepPoints[currentStepPoints.length - 1]
+                });
+            }
+            // Начинаем новый шаг
+            currentStepPoints = [from, to];
         }
+    }
+
+    // Добавляем последний шаг
+    if (currentStepPoints.length >= 2) {
+        steps.push({
+            from: currentStepPoints[0],
+            to: currentStepPoints[currentStepPoints.length - 1]
+        });
     }
 
     currentPath = steps;
