@@ -177,3 +177,9 @@ button {
         padding: 20px;
     }
 }
+
+#mapContainer canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
