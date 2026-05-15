@@ -107,40 +107,24 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
-    let lastBuilding = null;
 
     for (let i = 0; i < path.length - 1; i++) {
         const from = path[i];
         const to = path[i + 1];
         const buildingFrom = graphData.coordinates[from]?.building;
+        const buildingTo = graphData.coordinates[to]?.building;
 
-        if (buildingFrom !== lastBuilding) {
-            if (lastBuilding !== null) {
-                // завершили предыдущий шаг
-                const prevFrom = path[i - 1];
-                const prevTo = path[i];
-                if (prevFrom && prevTo) {
-                    steps.push({ from: prevFrom, to: prevTo });
-                }
-            }
-            lastBuilding = buildingFrom;
-        }
-
-        // последний переход
-        if (i === path.length - 2) {
+        // Если building меняется или это первый шаг — создаём новый шаг
+        if (i === 0 || buildingFrom !== buildingTo) {
             steps.push({ from, to });
+        } else {
+            // иначе продлеваем последний шаг
+            const last = steps[steps.length - 1];
+            last.to = to;
         }
     }
 
-    // убираем дубли подряд
-    const uniqueSteps = [];
-    for (let i = 0; i < steps.length; i++) {
-        if (i === 0 || steps[i].from !== steps[i-1].from || steps[i].to !== steps[i-1].to) {
-            uniqueSteps.push(steps[i]);
-        }
-    }
-
-    currentPath = uniqueSteps;
+    currentPath = steps;
     currentStep = 0;
     showStep();
 }
@@ -151,8 +135,8 @@ function showStep() {
     const step = currentPath[currentStep];
     if (!step) return;
 
-    const isLast = currentStep === currentPath.length - 1;
     const isFirst = currentStep === 0;
+    const isLast = currentStep === currentPath.length - 1;
 
     drawSegment(container, step.from, step.to, isFirst, isLast, () => {
         if (currentStep + 1 < currentPath.length) {
