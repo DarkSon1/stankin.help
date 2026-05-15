@@ -1,0 +1,9 @@
+{
+  "name": "Stankin Navigator",
+  "short_name": "StankinNav",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1a1a2e",
+  "background_color": "#ffffff",
+  "icons": []
+}
