@@ -37,6 +37,12 @@ function getImageForNode(node) {
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
     return null;
 }
+function getRelativeCoords(coord, imgWidth, imgHeight, canvasWidth, canvasHeight) {
+    return {
+        x: (coord.x / imgWidth) * canvasWidth,
+        y: (coord.y / imgHeight) * canvasHeight
+    };
+}
 
 function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext) {
     const fromCoord = graphData.coordinates[fromNode];
