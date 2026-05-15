@@ -37,12 +37,6 @@ function getImageForNode(node) {
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
     return null;
 }
-function getRelativeCoords(coord, imgWidth, imgHeight, canvasWidth, canvasHeight) {
-    return {
-        x: (coord.x / imgWidth) * canvasWidth,
-        y: (coord.y / imgHeight) * canvasHeight
-    };
-}
 
 function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext) {
     const fromCoord = graphData.coordinates[fromNode];
@@ -55,16 +49,30 @@ function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
-        container.innerHTML = ''; // полная очистка
+        container.innerHTML = '';
+
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+
+        // Ограничиваем размер на экране (адаптация)
+        const maxWidth = Math.min(img.width, window.innerWidth - 40);
+        canvas.width = maxWidth;
+        canvas.height = (img.height / img.width) * maxWidth;
+
+        const scaleX = canvas.width / img.width;
+        const scaleY = canvas.height / img.height;
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Адаптация координат под текущий размер canvas
+        const fromX = fromCoord.x * scaleX;
+        const fromY = fromCoord.y * scaleY;
+        const toX = toCoord.x * scaleX;
+        const toY = toCoord.y * scaleY;
 
         ctx.beginPath();
-        ctx.moveTo(fromCoord.x, fromCoord.y);
-        ctx.lineTo(toCoord.x, toCoord.y);
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
         ctx.strokeStyle = '#ff3333';
         ctx.lineWidth = 4;
         ctx.stroke();
@@ -72,11 +80,11 @@ function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext
         ctx.font = 'bold 16px sans-serif';
         if (isFirst) {
             ctx.fillStyle = '#2196F3';
-            ctx.fillText('🚩 Вы', fromCoord.x + 10, fromCoord.y - 6);
+            ctx.fillText('🚩 Вы', fromX + 10, fromY - 6);
         }
         if (isLast) {
             ctx.fillStyle = '#4CAF50';
-            ctx.fillText('🏁', toCoord.x + 10, toCoord.y - 6);
+            ctx.fillText('🏁', toX + 10, toY - 6);
         }
 
         container.appendChild(canvas);
@@ -147,7 +155,7 @@ document.getElementById('findBtn').addEventListener('click', async () => {
     if (!from || !to) return alert('Введите обе аудитории');
     if (!graphData) await loadGraphData();
 
-    startManualRoute(); // запускаем жёсткий маршрут
+    startManualRoute();
     document.getElementById('result').style.display = 'block';
 });
 
