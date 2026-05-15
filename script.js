@@ -107,43 +107,27 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
-    let lastImage = null;
 
     for (let i = 0; i < path.length - 1; i++) {
-        const fromNode = path[i];
-        const toNode = path[i + 1];
-        const image = getImageForNode(fromNode);
+        const from = path[i];
+        const to = path[i + 1];
+        const imageFrom = getImageForNode(from);
+        const imageTo = getImageForNode(to);
 
-        if (image !== lastImage) {
-            if (lastImage !== null) {
-                // предыдущий шаг был последним на этой картинке
-                const prevFrom = path[i - 1];
-                const prevTo = path[i];
-                if (prevFrom && prevTo) {
-                    steps.push({ from: prevFrom, to: prevTo });
-                }
-            }
-            lastImage = image;
-        }
-
-        // если это последний переход — добавляем его
-        if (i === path.length - 2) {
-            steps.push({ from: fromNode, to: toNode });
+        // Если картинка меняется — это начало нового шага
+        if (steps.length === 0 || imageFrom !== imageTo) {
+            steps.push({ from, to, image: imageFrom });
+        } else {
+            // продлеваем последний шаг до новой точки
+            steps[steps.length - 1].to = to;
         }
     }
 
-    // убираем дубли (если случайно попали)
-    const uniqueSteps = [];
-    for (let i = 0; i < steps.length; i++) {
-        if (i === 0 || steps[i].from !== steps[i-1].from || steps[i].to !== steps[i-1].to) {
-            uniqueSteps.push(steps[i]);
-        }
-    }
-
-    currentPath = uniqueSteps;
+    currentPath = steps;
     currentStep = 0;
     showStep();
 }
+
 function showStep() {
     const container = document.getElementById('mapContainer');
     if (!container) return;
