@@ -1,140 +1,151 @@
-// ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
 let graphData = null;
+let currentStep = 0;
+let currentPath = [];
 
-// ========== ЗАГРУЗКА JSON ==========
 async function loadGraphData() {
-    try {
-        const response = await fetch('data/graph.json');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        graphData = await response.json();
-        console.log('✅ Данные загружены:', graphData);
-        return true;
-    } catch (error) {
-        console.error('❌ Ошибка загрузки данных:', error);
-        return false;
-    }
+    const res = await fetch('data/graph.json');
+    graphData = await res.json();
+    setupAutocomplete();
 }
 
-// ========== ПОИСК АУДИТОРИИ В ДАННЫХ ==========
-function findAuditory(roomNumber) {
-    if (!graphData) return null;
-    roomNumber = roomNumber.trim();
-    
-    // Новый корпус (0205)
-    if (roomNumber.length === 4 && roomNumber[0] === '0') {
-        const floor = parseInt(roomNumber[1]);
-        const rooms = graphData.buildings.new.auditories[floor];
-        if (rooms && rooms.includes(roomNumber)) {
-            return {
-                building: 'new',
-                wing: null,
-                floor: floor,
-                room: roomNumber,
-                isValid: true
-            };
+function setupAutocomplete() {
+    const allRooms = [];
+    for (let f in graphData.buildings.new.floors)
+        allRooms.push(...graphData.buildings.new.floors[f]);
+    for (let w in graphData.buildings.old.wings)
+        for (let f in graphData.buildings.old.wings[w].floors)
+            allRooms.push(...graphData.buildings.old.wings[w].floors[f]);
+
+    let datalist = document.getElementById('auditories-list');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'auditories-list';
+        document.body.appendChild(datalist);
+    }
+    datalist.innerHTML = '';
+    allRooms.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r;
+        datalist.appendChild(opt);
+    });
+}
+
+function findPath(start, end) {
+    const paths = graphData.paths;
+    const queue = [[start]];
+    const visited = new Set();
+    while (queue.length) {
+        const path = queue.shift();
+        const node = path[path.length - 1];
+        if (node === end) return path;
+        if (visited.has(node)) continue;
+        visited.add(node);
+        for (const next of paths[node] || []) {
+            if (!visited.has(next)) queue.push([...path, next]);
         }
     }
-    
-    // Старый корпус (205) — пока заглушка
-    if (roomNumber.length === 3 && roomNumber[0] !== '0') {
-        return null;
-    }
-    
     return null;
 }
 
-// ========== ПАРСИНГ НОМЕРА ==========
-async function parseRoomNumberWithData(room) {
-    room = room.trim();
-    if (!graphData) await loadGraphData();
-    
-    const found = findAuditory(room);
-    if (!found) {
-        return {
-            original: room,
-            isValid: false,
-            error: `Аудитория ${room} не найдена в базе`
-        };
-    }
-    
-    if (found.building === 'new') {
-        return {
-            original: room,
-            building: 'new',
-            buildingName: 'Новый',
-            floor: found.floor,
-            number: room.substring(2),
-            isValid: true,
-            error: null
-        };
-    }
-    
-    return { original: room, isValid: false, error: 'Старый корпус пока в разработке' };
+function getImageForNode(node) {
+    const c = graphData.coordinates[node];
+    if (!c) return null;
+    if (c.building === 'new') return `/assets/maps/new_${c.floor}.jpg`;
+    if (c.building === 'old') return `/assets/maps/old_${c.floor}A.jpg`;
+    if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
+    return null;
 }
 
-// ========== BFS: ПОИСК КРАТЧАЙШЕГО ПУТИ ==========
-function findPathBFS(startNode, endNode) {
-    // Временная заглушка — пока просто текст
-    return {
-        steps: [
-            `📍 Отправление: ${startNode.buildingName} корпус, ${startNode.floor} этаж, аудитория ${startNode.original}`,
-            `↑ Подняться на ${endNode.floor} этаж`,
-            `✅ Прибытие: ${endNode.buildingName} корпус, ${endNode.floor} этаж, аудитория ${endNode.original}`
-        ]
+function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback) {
+    const fromCoord = graphData.coordinates[fromNode];
+    const toCoord = graphData.coordinates[toNode];
+    if (!fromCoord || !toCoord) return;
+
+    const imgSrc = getImageForNode(fromNode);
+    if (!imgSrc) return;
+
+    const img = new Image();
+    img.src = imgSrc;
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        ctx.beginPath();
+        ctx.moveTo(fromCoord.x, fromCoord.y);
+        ctx.lineTo(toCoord.x, toCoord.y);
+        ctx.strokeStyle = '#ff3333';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.font = 'bold 16px sans-serif';
+        if (isFirst) {
+            ctx.fillStyle = '#2196F3';
+            ctx.fillText('🚩 Вы', fromCoord.x + 10, fromCoord.y - 6);
+        }
+        if (isLast) {
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillText('🏁', toCoord.x + 10, toCoord.y - 6);
+        }
+
+        container.innerHTML = '';
+        container.appendChild(canvas);
+
+        if (nextCallback) {
+            const btn = document.createElement('button');
+            btn.textContent = '→ Дальше';
+            btn.style.marginTop = '16px';
+            btn.onclick = nextCallback;
+            container.appendChild(btn);
+        }
     };
 }
 
-// ========== ОТОБРАЖЕНИЕ МАРШРУТА ==========
-async function displayRoute(from, to) {
-    const resultDiv = document.getElementById('result');
-    const routeTextDiv = document.getElementById('routeText');
-    
-    const fromInfo = await parseRoomNumberWithData(from);
-    const toInfo = await parseRoomNumberWithData(to);
-    
-    if (!fromInfo.isValid) {
-        routeTextDiv.innerHTML = `<div class="error">⚠️ ${fromInfo.error}</div>`;
-        resultDiv.style.display = 'block';
-        return;
+function startNavigation(path) {
+    const steps = [];
+    for (let i = 0; i < path.length - 1; i++) {
+        const a = path[i];
+        const b = path[i + 1];
+        const imgA = getImageForNode(a);
+        const imgB = getImageForNode(b);
+        if (imgA !== imgB || i === 0 || i === path.length - 2) {
+            steps.push({ from: a, to: b });
+        }
     }
-    if (!toInfo.isValid) {
-        routeTextDiv.innerHTML = `<div class="error">⚠️ ${toInfo.error}</div>`;
-        resultDiv.style.display = 'block';
-        return;
-    }
-    
-    // Если оба в Новом корпусе — строим маршрут
-    if (fromInfo.building === 'new' && toInfo.building === 'new') {
-        const route = findPathBFS(fromInfo, toInfo);
-        let html = '';
-        route.steps.forEach(step => {
-            html += `<div class="route-step">${step}</div>`;
-        });
-        routeTextDiv.innerHTML = html;
-    } else {
-        routeTextDiv.innerHTML = `<div class="error">⚠️ Переход между корпусами пока в разработке</div>`;
-    }
-    
-    resultDiv.style.display = 'block';
+
+    currentPath = steps;
+    currentStep = 0;
+    showStep();
 }
 
-// ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
+function showStep() {
+    const container = document.getElementById('mapContainer');
+    if (!container) return;
+    const step = currentPath[currentStep];
+    if (!step) return;
+
+    const isLast = currentStep === currentPath.length - 1;
+    drawSegment(container, step.from, step.to, currentStep === 0, isLast, () => {
+        if (currentStep + 1 < currentPath.length) {
+            currentStep++;
+            showStep();
+        }
+    });
+}
+
 document.getElementById('findBtn').addEventListener('click', async () => {
-    const from = document.getElementById('from').value;
-    const to = document.getElementById('to').value;
-    if (!from || !to) {
-        alert('Введите обе аудитории');
-        return;
-    }
-    await displayRoute(from, to);
+    const from = document.getElementById('from').value.trim();
+    const to = document.getElementById('to').value.trim();
+    if (!from || !to) return alert('Введите обе аудитории');
+    if (!graphData) await loadGraphData();
+
+    const path = findPath(from, to);
+    if (!path) return alert('Маршрут не найден');
+
+    startNavigation(path);
+    document.getElementById('result').style.display = 'block';
 });
 
-document.getElementById('from').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('findBtn').click();
-});
-document.getElementById('to').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('findBtn').click();
-});
-
-// ========== ЗАГРУЗКА ПРИ СТАРТЕ ==========
 loadGraphData();
