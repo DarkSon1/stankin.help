@@ -107,20 +107,24 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
+    let i = 0;
 
-    for (let i = 0; i < path.length - 1; i++) {
+    while (i < path.length - 1) {
         const from = path[i];
         const to = path[i + 1];
-        const imageFrom = getImageForNode(from);
-        const imageTo = getImageForNode(to);
+        const currentImage = getImageForNode(from);
 
-        // Если картинка меняется — это начало нового шага
-        if (steps.length === 0 || imageFrom !== imageTo) {
-            steps.push({ from, to, image: imageFrom });
-        } else {
-            // продлеваем последний шаг до новой точки
-            steps[steps.length - 1].to = to;
+        let lastIndex = i;
+        for (let j = i + 1; j < path.length; j++) {
+            const img = getImageForNode(path[j]);
+            if (img !== currentImage) break;
+            lastIndex = j;
         }
+
+        const stepFrom = path[i];
+        const stepTo = path[lastIndex];
+        steps.push({ from: stepFrom, to: stepTo, image: currentImage });
+        i = lastIndex;
     }
 
     currentPath = steps;
