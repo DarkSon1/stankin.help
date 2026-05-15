@@ -66,6 +66,14 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
     const imgSrc = getImageForNode(fromNode);
     if (!imgSrc) return;
 
+    // Убедимся, что оба конца — на одной картинке
+    const imgFrom = getImageForNode(fromNode);
+    const imgTo = getImageForNode(toNode);
+    if (imgFrom !== imgTo) {
+        console.error('Отрезок跨越 картинки:', fromNode, toNode);
+        return;
+    }
+
     const img = new Image();
     img.src = imgSrc;
     img.onload = () => {
@@ -114,11 +122,9 @@ function startNavigation(path) {
         const buildingFrom = graphData.coordinates[from]?.building;
         const buildingTo = graphData.coordinates[to]?.building;
 
-        // Если building меняется или это первый шаг — создаём новый шаг
         if (i === 0 || buildingFrom !== buildingTo) {
             steps.push({ from, to });
         } else {
-            // иначе продлеваем последний шаг
             const last = steps[steps.length - 1];
             last.to = to;
         }
