@@ -11,23 +11,17 @@ async function loadGraphData() {
 function setupAutocomplete() {
     const allRooms = [];
 
-    // Новый корпус
-    for (let f in graphData.buildings.new.floors) {
+    for (let f in graphData.buildings.new.floors)
         allRooms.push(...graphData.buildings.new.floors[f]);
-    }
-
-    // Старый корпус А
-    for (let f in graphData.buildings.old.wings.A.floors) {
+    for (let f in graphData.buildings.old.wings.A.floors)
         allRooms.push(...graphData.buildings.old.wings.A.floors[f]);
+
+    let datalist = document.getElementById('auditories-list');
+    if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'auditories-list';
+        document.body.appendChild(datalist);
     }
-
-    const datalist = document.getElementById('auditories-list') || (() => {
-        const dl = document.createElement('datalist');
-        dl.id = 'auditories-list';
-        document.body.appendChild(dl);
-        return dl;
-    })();
-
     datalist.innerHTML = '';
     allRooms.forEach(r => {
         const opt = document.createElement('option');
@@ -58,11 +52,7 @@ function getImageForNode(node) {
     const c = graphData.coordinates[node];
     if (!c) return null;
 
-    if (c.building === 'new') {
-        const path = `/assets/maps/new_${c.floor}.jpg`;
-        console.log('🖼️ Загружаем картинку:', path);
-        return path;
-    }
+    if (c.building === 'new') return `/assets/maps/new_${c.floor}.jpg`;
     if (c.building === 'old') return `/assets/maps/old_${c.floor}A.jpg`;
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
     return null;
@@ -117,14 +107,11 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
-
     for (let i = 0; i < path.length - 1; i++) {
         const a = path[i];
         const b = path[i + 1];
         const imgA = getImageForNode(a);
         const imgB = getImageForNode(b);
-
-        // Принудительная смена при смене building
         const buildingA = graphData.coordinates[a]?.building;
         const buildingB = graphData.coordinates[b]?.building;
 
@@ -137,6 +124,7 @@ function startNavigation(path) {
     currentStep = 0;
     showStep();
 }
+
 function showStep() {
     const container = document.getElementById('mapContainer');
     if (!container) return;
@@ -152,10 +140,10 @@ function showStep() {
     });
 }
 
+// Обработчики
 document.getElementById('findBtn').addEventListener('click', async () => {
     const from = document.getElementById('from').value.trim();
     const to = document.getElementById('to').value.trim();
-
     if (!from || !to) return alert('Введите обе аудитории');
     if (!graphData) await loadGraphData();
 
@@ -165,5 +153,19 @@ document.getElementById('findBtn').addEventListener('click', async () => {
     startNavigation(path);
     document.getElementById('result').style.display = 'block';
 });
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('from').value = '';
+    document.getElementById('to').value = '';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('mapContainer').innerHTML = '';
+    currentPath = [];
+    currentStep = 0;
+});
+
+// PWA
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+}
 
 loadGraphData();
