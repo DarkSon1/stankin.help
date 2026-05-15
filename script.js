@@ -107,15 +107,40 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
 
 function startNavigation(path) {
     const steps = [];
+    let lastBuilding = null;
 
     for (let i = 0; i < path.length - 1; i++) {
-        steps.push({
-            from: path[i],
-            to: path[i + 1]
-        });
+        const from = path[i];
+        const to = path[i + 1];
+        const buildingFrom = graphData.coordinates[from]?.building;
+
+        if (buildingFrom !== lastBuilding) {
+            if (lastBuilding !== null) {
+                // завершили предыдущий шаг
+                const prevFrom = path[i - 1];
+                const prevTo = path[i];
+                if (prevFrom && prevTo) {
+                    steps.push({ from: prevFrom, to: prevTo });
+                }
+            }
+            lastBuilding = buildingFrom;
+        }
+
+        // последний переход
+        if (i === path.length - 2) {
+            steps.push({ from, to });
+        }
     }
 
-    currentPath = steps;
+    // убираем дубли подряд
+    const uniqueSteps = [];
+    for (let i = 0; i < steps.length; i++) {
+        if (i === 0 || steps[i].from !== steps[i-1].from || steps[i].to !== steps[i-1].to) {
+            uniqueSteps.push(steps[i]);
+        }
+    }
+
+    currentPath = uniqueSteps;
     currentStep = 0;
     showStep();
 }
