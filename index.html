@@ -2,10 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>stankin.help — навигатор по Станкину</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>stankin.help — навигатор</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <div class="container">
@@ -13,36 +12,26 @@
             <div class="logo">stankin.<span class="highlight">help</span></div>
             <p class="tagline">Навигатор по корпусам</p>
         </div>
-
+        
         <div class="input-card">
             <div class="input-group">
                 <label>📍 Откуда</label>
-                <input type="text" id="from" placeholder="0205 или 205">
+                <input type="text" id="from" list="auditories-list" placeholder="0208 или ТП-8 ЛТТО ЦТМ">
             </div>
-
             <div class="input-group">
                 <label>🎯 Куда</label>
-                <input type="text" id="to" placeholder="0301 или 301">
+                <input type="text" id="to" list="auditories-list" placeholder="0208 или ТП-8 ЛТТО ЦТМ">
             </div>
-
             <button id="findBtn">Построить маршрут →</button>
         </div>
 
         <div id="result" class="result-card" style="display: none;">
             <h3>🗺️ Маршрут</h3>
-            <div id="routeText"></div>
-        </div>
-
-        <div class="footer">
-            <span>stankin.help — офлайн-навигатор</span>
+            <div id="mapContainer"></div>
         </div>
     </div>
 
+    <datalist id="auditories-list"></datalist>
     <script src="script.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(console.log);
-        }
-    </script>
 </body>
 </html>
