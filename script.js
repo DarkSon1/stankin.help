@@ -58,7 +58,11 @@ function getImageForNode(node) {
     const c = graphData.coordinates[node];
     if (!c) return null;
 
-    if (c.building === 'new') return `/assets/maps/new_${c.floor}.jpg`;
+    if (c.building === 'new') {
+        const path = `/assets/maps/new_${c.floor}.jpg`;
+        console.log('🖼️ Загружаем картинку:', path);
+        return path;
+    }
     if (c.building === 'old') return `/assets/maps/old_${c.floor}A.jpg`;
     if (c.building === 'transition') return `/assets/maps/transition_old_new.png`;
     return null;
