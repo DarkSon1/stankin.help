@@ -30,24 +30,6 @@ function setupAutocomplete() {
     });
 }
 
-function findPath(start, end) {
-    const paths = graphData.paths;
-    const queue = [[start]];
-    const visited = new Set();
-
-    while (queue.length) {
-        const path = queue.shift();
-        const node = path[path.length - 1];
-        if (node === end) return path;
-        if (visited.has(node)) continue;
-        visited.add(node);
-        for (const next of paths[node] || []) {
-            if (!visited.has(next)) queue.push([...path, next]);
-        }
-    }
-    return null;
-}
-
 function getImageForNode(node) {
     const c = graphData.coordinates[node];
     if (!c) return null;
@@ -58,35 +40,20 @@ function getImageForNode(node) {
     return null;
 }
 
-function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback) {
+function drawStep(container, fromNode, toNode, imageSrc, isFirst, isLast, onNext) {
     const fromCoord = graphData.coordinates[fromNode];
     const toCoord = graphData.coordinates[toNode];
     if (!fromCoord || !toCoord) return;
 
-    const imgSrc = getImageForNode(fromNode);
-    if (!imgSrc) return;
-
-    // Очищаем контейнер и показываем загрузку
-    container.innerHTML = '';
-    const loadingDiv = document.createElement('div');
-    loadingDiv.textContent = '⏳ Загрузка карты...';
-    loadingDiv.style.padding = '20px';
-    loadingDiv.style.textAlign = 'center';
-    container.appendChild(loadingDiv);
-
     const img = new Image();
-    img.src = imgSrc;
+    img.src = imageSrc;
     img.onload = () => {
-        // Удаляем загрузку
-        container.innerHTML = '';
-
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
 
-        // Рисуем линию
         ctx.beginPath();
         ctx.moveTo(fromCoord.x, fromCoord.y);
         ctx.lineTo(toCoord.x, toCoord.y);
@@ -94,69 +61,59 @@ function drawSegment(container, fromNode, toNode, isFirst, isLast, nextCallback)
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // 🚩 Вы (только на первом шаге)
         ctx.font = 'bold 16px sans-serif';
         if (isFirst) {
             ctx.fillStyle = '#2196F3';
             ctx.fillText('🚩 Вы', fromCoord.x + 10, fromCoord.y - 6);
         }
-
-        // 🏁 Флаг (только на последнем шаге)
         if (isLast) {
             ctx.fillStyle = '#4CAF50';
             ctx.fillText('🏁', toCoord.x + 10, toCoord.y - 6);
         }
 
+        container.innerHTML = '';
         container.appendChild(canvas);
 
-        // Кнопка "Дальше"
-        if (nextCallback) {
+        if (onNext) {
             const btn = document.createElement('button');
             btn.textContent = '→ Дальше';
             btn.style.marginTop = '16px';
-            btn.onclick = nextCallback;
+            btn.onclick = onNext;
             container.appendChild(btn);
         }
     };
-
-    img.onerror = () => {
-        container.innerHTML = `<div style="color:red; padding:20px;">❌ Ошибка загрузки ${imgSrc}</div>`;
-    };
 }
 
-function startNavigation(path) {
+function startNavigation(startNode, endNode) {
+    const path = [startNode, endNode];
     const steps = [];
-    let currentStepPoints = [path[0]];
 
-    for (let i = 0; i < path.length - 1; i++) {
-        const from = path[i];
-        const to = path[i + 1];
-        const imgFrom = getImageForNode(from);
-        const imgTo = getImageForNode(to);
+    // Новый корпус: 0208 → exit_new_to_transition
+    steps.push({
+        from: "0208",
+        to: "exit_new_to_transition",
+        image: getImageForNode("0208"),
+        isFirst: true,
+        isLast: false
+    });
 
-        if (imgFrom === imgTo) {
-            // Продолжаем на той же картинке
-            currentStepPoints.push(to);
-        } else {
-            // Заканчиваем текущий шаг
-            if (currentStepPoints.length >= 2) {
-                steps.push({
-                    from: currentStepPoints[0],
-                    to: currentStepPoints[currentStepPoints.length - 1]
-                });
-            }
-            // Начинаем новый шаг
-            currentStepPoints = [from, to];
-        }
-    }
+    // Переход: enter_transition_from_new → exit_transition_to_old
+    steps.push({
+        from: "enter_transition_from_new",
+        to: "exit_transition_to_old",
+        image: getImageForNode("enter_transition_from_new"),
+        isFirst: false,
+        isLast: false
+    });
 
-    // Добавляем последний шаг
-    if (currentStepPoints.length >= 2) {
-        steps.push({
-            from: currentStepPoints[0],
-            to: currentStepPoints[currentStepPoints.length - 1]
-        });
-    }
+    // Старый корпус: enter_old_from_transition → ТП-8 ЛТТО ЦТМ
+    steps.push({
+        from: "enter_old_from_transition",
+        to: "ТП-8 ЛТТО ЦТМ",
+        image: getImageForNode("enter_old_from_transition"),
+        isFirst: false,
+        isLast: true
+    });
 
     currentPath = steps;
     currentStep = 0;
@@ -169,10 +126,7 @@ function showStep() {
     const step = currentPath[currentStep];
     if (!step) return;
 
-    const isFirst = currentStep === 0;
-    const isLast = currentStep === currentPath.length - 1;
-
-    drawSegment(container, step.from, step.to, isFirst, isLast, () => {
+    drawStep(container, step.from, step.to, step.image, step.isFirst, step.isLast, () => {
         if (currentStep + 1 < currentPath.length) {
             currentStep++;
             showStep();
@@ -187,10 +141,7 @@ document.getElementById('findBtn').addEventListener('click', async () => {
     if (!from || !to) return alert('Введите обе аудитории');
     if (!graphData) await loadGraphData();
 
-    const path = findPath(from, to);
-    if (!path) return alert('Маршрут не найден');
-
-    startNavigation(path);
+    startNavigation(from, to);
     document.getElementById('result').style.display = 'block';
 });
 
@@ -203,7 +154,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     currentStep = 0;
 });
 
-// PWA
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
 }
